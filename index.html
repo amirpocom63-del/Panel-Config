@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>پنل مدیریت پروفایل‌ها</title>
+
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#121a33;
+      --muted:#9aa6c2;
+      --text:#e9eeff;
+      --border:rgba(255,255,255,.08);
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --primary:#7c5cff;
+      --primary2:#5bdbff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1200px 700px at 20% 0%, rgba(124,92,255,.25), transparent 60%),
+                  radial-gradient(1000px 600px at 90% 20%, rgba(91,219,255,.18), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    code{background:rgba(255,255,255,.06); padding:.1rem .35rem; border-radius:.4rem}
+    .topbar{
+      position:sticky; top:0; z-index:20;
+      backdrop-filter: blur(10px);
+      background: rgba(11,16,32,.55);
+      border-bottom:1px solid var(--border);
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px 18px;
+    }
+    .brand{display:flex; gap:12px; align-items:center}
+    .logo{
+      width:42px; height:42px; border-radius:14px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--primary), var(--primary2));
+      color:#071021; font-weight:800;
+    }
+    .title{font-weight:800}
+    .subtitle{font-size:.9rem; color:var(--muted)}
+    .actions{display:flex; gap:10px}
+    .container{
+      max-width:1100px;
+      margin:0 auto;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .card{
+      background: rgba(18,26,51,.78);
+      border:1px solid var(--border);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:16px;
+    }
+    .cardHead{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .muted{color:var(--muted); margin:.3rem 0 0}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width: 900px){ .grid{grid-template-columns:1fr} }
+    .field label{display:block; font-size:.92rem; margin-bottom:6px; color:#cfd7ff}
+    .field input, .field textarea{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      outline:none;
+    }
+    .field input:focus, .field textarea:focus{
+      border-color: rgba(124,92,255,.55);
+      box-shadow: 0 0 0 3px rgba(124,92,255,.18);
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    .btn{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+    }
+    .btn:hover{background: rgba(255,255,255,.09)}
+    .btn-primary{
+      background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(91,219,255,.75));
+      border: none;
+      color:#071021;
+      font-weight:800;
+    }
+    .btn-ghost{ background: transparent; }
+    .split{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:16px;
+    }
+    @media (max-width: 900px){ .split{grid-template-columns:1fr} }
+    .list{display:flex; flex-direction:column; gap:10px; margin-top:10px}
+    .item{
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      border-radius:16px;
+      padding:12px;
+      display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+    }
+    .item .meta{display:flex; flex-direction:column; gap:4px}
+    .item .name{font-weight:800}
+    .item .desc{color:var(--muted); font-size:.92rem; line-height:1.35}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color:#cfd7ff;
+      font-size:.82rem;
+      width:fit-content;
+    }
+    .kv{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px}
+    .kv span{color:var(--muted); font-size:.86rem}
+    .itemActions{display:flex; gap:8px}
+    .iconBtn{
+      width:38px; height:38px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      cursor:pointer;
+    }
+    .iconBtn:hover{background: rgba(255,255,255,.1)}
+    .tabs{display:flex; gap:8px; margin-top:10px}
+    .tab{
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color:var(--text);
+      cursor:pointer;
+    }
+    .tab.active{
+      background: rgba(124,92,255,.22);
+      border-color: rgba(124,92,255,.45);
+    }
+    .preview{margin-top:10px}
+    .code{
+      margin:0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: rgba(0,0,0,.28);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:12px;
+      min-height:160px;
+    }
+    .modal{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:grid; place-items:center;
+      padding:16px;
+      z-index:50;
+    }
+    .modalCard{
+      width:min(680px, 100%);
+      background: rgba(18,26,51,.98);
+      border:1px solid var(--border);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:14px;
+    }
+    .modalHead{
+      display:flex; justify-content:space-between; align-items:center;
+      gap:10px; padding-bottom:8px;
+      border-bottom:1px solid var(--border);
+    }
+    .modalFoot{
+      display:flex; justify-content:flex-end; gap:10px;
+      margin-top:12px;
+    }
+    .status{margin-top:10px; color:var(--muted)}
+    .linksBox{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background: rgba(0,0,0,.25);
+      border:1px solid var(--border);
+    }
+    .hidden{display:none !important}
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">CP</div>
+      <div>
+        <div class="title">پنل مدیریت پروفایل‌ها</div>
+        <div class="subtitle">یک فایل HTML — بدون بک‌اند</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btnExport" class="btn">خروجی گرفتن</button>
+      <button id="btnImport" class="btn btn-ghost">ورود داده</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>تنظیمات GitHub (اختیاری)</h2>
+      <p class="muted">
+        اگر این بخش را پر کنی، با دکمه “انتشار در GitHub” فایل‌های <code>servers.json</code> و <code>sub.txt</code> داخل ریپو آپدیت می‌شن
+        و لینک خام (raw) برای کاربران همیشه به‌روز می‌مونه.
+      </p>
+
+      <div class="grid">
+        <div class="field">
+          <label>Owner (نام کاربری GitHub)</label>
+          <input id="ghOwner" placeholder="مثلاً amirhossein" />
+        </div>
+        <div class="field">
+          <label>Repo (اسم ریپو)</label>
+          <input id="ghRepo" placeholder="مثلاً config-panel" />
+        </div>
+        <div class="field">
+          <label>Branch</label>
+          <input id="ghBranch" placeholder="main" />
+        </div>
+        <div class="field">
+          <label>Path servers.json</label>
+          <input id="ghPathServers" placeholder="servers.json" />
+        </div>
+        <div class="field">
+          <label>Path sub.txt</label>
+          <input id="ghPathSub" placeholder="sub.txt" />
+        </div>
+        <div class="field">
+          <label>GitHub Token (PAT)</label>
+          <input id="ghToken" placeholder="ghp_..." type="password" />
+          <small class="muted">توکن فقط در مرورگر ذخیره می‌شود (localStorage).</small>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnPublish" class="btn btn-primary">انتشار در GitHub</button>
+        <button id="btnShowLinks" class="btn btn-ghost">نمایش لینک‌های کاربران</button>
+      </div>
+
+      <div id="linksBox" class="linksBox hidden"></div>
+      <div id="publishStatus" class="status"></div>
+    </section>
+
+    <section class="split">
+      <section class="card">
+        <div class="cardHead">
+          <h2>سرورها</h2>
+          <button id="btnAddServer" class="btn">+ افزودن</button>
+        </div>
+        <div id="serversList" class="list"></div>
+      </section>
+
+      <section class="card">
+        <div class="cardHead">
+          <h2>پروفایل‌ها</h2>
+          <button id="btnAddProfile" class="btn">+ افزودن</button>
+        </div>
+        <p class="muted">هر پروفایل یک متن/لینک است که در خروجی <code>sub.txt</code> خط به خط نوشته می‌شود.</p>
+        <div id="profilesList" class="list"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <h2>پیش‌نمایش خروجی‌ها</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="servers">servers.json</button>
+        <button class="tab" data-tab="sub">sub.txt</button>
+      </div>
+
+      <div class="preview">
+        <pre id="preview" class="code"></pre>
+      </div>
+
+      <div class="row">
+        <button id="btnDownloadServers" class="btn">دانلود servers.json</button>
+        <button id="btnDownloadSub" class="btn btn-ghost">دانلود sub.txt</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHead">
+        <h3 id="modalTitle"></h3>
+        <button id="modalClose" class="iconBtn" aria-label="Close">✕</button>
+      </div>
+      <div id="modalBody"></div>
+      <div class="modalFoot">
+        <button id="modalCancel" class="btn btn-ghost">انصراف</button>
+        <button id="modalSave" class="btn btn-primary">ذخیره</button>
+      </div>
+    </div>
+  </div>
+
+  <input id="fileInput" type="file" accept=".json" class="hidden" />
+
+  <script>
+    /* ===========================
+       Storage
+    =========================== */
+    const LS_KEY = "cp_state_v1";
+
+    const defaultState = {
+      github: {
+        owner: "",
+        repo: "",
+        branch: "main",
+        pathServers: "servers.json",
+        pathSub: "sub.txt",
+        token: ""
+      },
+      servers: [
+        { id: crypto.randomUUID(), name: "Server-1", host: "example.com", port: 443, note: "نمونه", enabled: true }
+      ],
+      profiles: [
+        { id: crypto.randomUUID(), name: "Profile-1", content: "sample://profile", enabled: true, note: "نمونه" }
+      ]
+    };
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if(!raw) return structuredClone(defaultState);
+        const st = JSON.parse(raw);
+        return {
+          ...structuredClone(defaultState),
+          ...st,
+          github: { ...structuredClone(defaultState.github), ...(st.github || {}) }
+        };
+      }catch{
+        return structuredClone(defaultState);
+      }
+    }
+    function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state, null, 2)); }
+    let state = loadState();
+
+    /* ===========================
+       Helpers
+    =========================== */
+    const $ = (sel) => document.querySelector(sel);
+    const el = (tag, cls) => {
+      const e = document.createElement(tag);
+      if(cls) e.className = cls;
+      return e;
+    };
+
+    function escapeHtml(s){
+      return (s ?? "").toString()
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function downloadText(filename, content, type="text/plain"){
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    /* ===========================
+       UI: Modal
+    =========================== */
+    const modal = $("#modal");
+    const modalTitle = $("#modalTitle");
+    const modalBody = $("#modalBody");
+    const modalClose = $("#modalClose");
+    const modalCancel = $("#modalCancel");
+    const modalSave = $("#modalSave");
+    let modalOnSave = null;
+
+    function openModal(title, bodyNode, onSave){
+      modalTitle.textContent = title;
+      modalBody.innerHTML = "";
+      modalBody.appendChild(bodyNode);
+      modalOnSave = onSave;
+      modal.classList.remove("hidden");
+    }
+    function closeModal(){
+      modal.classList.add("hidden");
+      modalOnSave = null;
+    }
+    modalClose.onclick = closeModal;
+    modalCancel.onclick = closeModal;
+    modalSave.onclick = () => { if(typeof modalOnSave === "function") modalOnSave(); };
+
+    /* ===========================
+       Render
+    =========================== */
+    const serversList = $("#serversList");
+    const profilesList = $("#profilesList");
+    const preview = $("#preview");
+    let activeTab = "servers";
+
+    function render(){
+      $("#ghOwner").value = state.github.owner;
+      $("#ghRepo").value = state.github.repo;
+      $("#ghBranch").value = state.github.branch;
+      $("#ghPathServers").value = state.github.pathServers;
+      $("#ghPathSub").value = state.github.pathSub;
+      $("#ghToken").value = state.github.token;
+
+      serversList.innerHTML = "";
+      state.servers.forEach(s => {
+        const item = el("div", "item");
+        const meta = el("div", "meta");
+        const name = el("div", "name");
+        name.textContent = s.name + (s.enabled ? "" : " (خاموش)");
+        const desc = el("div", "desc");
+        desc.innerHTML = `
+          <div class="badge">${s.enabled ? "فعال" : "غیرفعال"}</div>
+          <div class="kv">
+            <span>Host: ${escapeHtml(s.host)}</span>
+            <span>Port: ${escapeHtml(s.port)}</span>
+          </div>
+          <div class="muted">${escapeHtml(s.note || "")}</div>
+        `;
+        meta.appendChild(name);
+        meta.appendChild(desc);
+
+        const actions = el("div", "itemActions");
+        const btnEdit = el("button", "iconBtn");
+        btnEdit.textContent = "✎";
+        btnEdit.title = "ویرایش";
+        btnEdit.onclick = () => openServerForm(s);
+
+        const btnToggle = el("button", "iconBtn");
+        btnToggle.textContent = s.enabled ? "⏻" : "⏽";
+        btnToggle.title = s.enabled ? "غیرفعال" : "فعال";
+        btnToggle.onclick = () => { s.enabled = !s.enabled; saveState(); render(); };
+
+        const btnDel = el("button", "iconBtn");
+        btnDel.textContent = "🗑";
+        btnDel.title = "حذف";
+        btnDel.onclick = () => {
+          state.servers = state.servers.filter(x => x.id !== s.id);
+          saveState(); render();
+        };
+
+        actions.append(btnEdit, btnToggle, btnDel);
+        item.append(meta, actions);
+        serversList.appendChild(item);
+      });
+
+      profilesList.innerHTML = "";
+      state.profiles.forEach(p => {
+        const item = el("div", "item");
+        const meta = el("div", "meta");
+        const name = el("div", "name");
+        name.textContent = p.name + (p.enabled ? "" : " (خاموش)");
+        const desc = el("div", "desc");
+        desc.innerHTML = `
+          <div class="badge">${p.enabled ? "فعال" : "غیرفعال"}</div>
+          <div class="muted">${escapeHtml(p.note || "")}</div>
+          <div class="kv"><span>${escapeHtml(p.content)}</span></div>
+        `;
+        meta.append(name, desc);
+
+        const actions = el("div", "itemActions");
+        const btnEdit = el("button", "iconBtn");
+        btnEdit.textContent = "✎";
+        btnEdit.title = "ویرایش";
+        btnEdit.onclick = () => openProfileForm(p);
+
+        const btnToggle = el("button", "iconBtn");
+        btnToggle.textContent = p.enabled ? "⏻" : "⏽";
+        btnToggle.title = p.enabled ? "غیرفعال" : "فعال";
+        btnToggle.onclick = () => { p.enabled = !p.enabled; saveState(); render(); };
+
+        const btnDel = el("button", "iconBtn");
+        btnDel.textContent = "🗑";
+        btnDel.title = "حذف";
+        btnDel.onclick = () => {
+          state.profiles = state.profiles.filter(x => x.id !== p.id);
+          saveState(); render();
+        };
+
+        actions.append(btnEdit, btnToggle, btnDel);
+        item.append(meta, actions);
+        profilesList.appendChild(item);
+      });
+
+      preview.textContent = activeTab === "servers" ? buildServersJson() : buildSubTxt();
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === activeTab));
+    }
+
+    function buildServersJson(){
+      const payload = {
+        updatedAt: new Date().toISOString(),
+        servers: state.servers.filter(s => s.enabled).map(({id, ...rest}) => rest),
+        profiles: state.profiles.filter(p => p.enabled).map(({id, ...rest}) => rest),
+      };
+      return JSON.stringify(payload, null, 2);
+    }
+
+    function buildSubTxt(){
+      return state.profiles
+        .filter(p => p.enabled)
+        .map(p => p.content.trim())
+        .filter(Boolean)
+        .join("\\n") + "\\n";
+    }
+
+    /* ===========================
+       Forms
+    =========================== */
+    function openServerForm(existing){
+      const isEdit = !!existing;
+      const wrap = el("div");
+      wrap.innerHTML = `
+        <div class="grid">
+          <div class="field">
+            <label>نام</label>
+            <input id="f_name" placeholder="مثلاً DE-1" value="${escapeHtml(existing?.name || "")}">
+          </div>
+          <div class="field">
+            <label>Host</label>
+            <input id="f_host" placeholder="example.com" value="${escapeHtml(existing?.host || "")}">
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input id="f_port" type="number" placeholder="443" value="${escapeHtml(existing?.port ?? 443)}">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>یادداشت</label>
+            <input id="f_note" placeholder="اختیاری" value="${escapeHtml(existing?.note || "")}">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>فعال</label>
+            <input id="f_enabled" type="checkbox" ${(existing?.enabled ?? true) ? "checked" : ""}>
+          </div>
+        </div>
+      `;
+      openModal(isEdit ? "ویرایش سرور" : "افزودن سرور", wrap, () => {
+        const name = $("#f_name").value.trim();
+        const host = $("#f_host").value.trim();
+        const port = Number($("#f_port").value || 0);
+        const note = $("#f_note").value.trim();
+        const enabled = $("#f_enabled").checked;
+
+        if(!name || !host || !port){ alert("نام، Host و Port الزامی است."); return; }
+
+        if(isEdit){
+          existing.name = name; existing.host = host; existing.port = port;
+          existing.note = note; existing.enabled = enabled;
+        }else{
+          state.servers.unshift({ id: crypto.randomUUID(), name, host, port, note, enabled });
+        }
+        saveState(); render(); closeModal();
+      });
+    }
+
+    function openProfileForm(existing){
+      const isEdit = !!existing;
+      const wrap = el("div");
+      wrap.innerHTML = `
+        <div class="grid">
+          <div class="field">
+            <label>نام</label>
+            <input id="p_name" placeholder="مثلاً Mobile" value="${escapeHtml(existing?.name || "")}">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>متن/لینک پروفایل (هر چیزی خواستی)</label>
+            <textarea id="p_content" rows="4" placeholder="یک لینک یا هر متن...">${escapeHtml(existing?.content || "")}</textarea>
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>یادداشت</label>
+            <input id="p_note" placeholder="اختیاری" value="${escapeHtml(existing?.note || "")}">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>فعال</label>
+            <input id=
