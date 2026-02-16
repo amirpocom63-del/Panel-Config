@@ -317,64 +317,7 @@
   </div>
 
   <input id="fileInput" type="file" accept=".json" class="hidden" />
-    <script>
-  // --- Polyfills for older browsers ---
-  if (typeof structuredClone !== "function") {
-    window.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
-  }
-
-  if (!crypto.randomUUID) {
-    crypto.randomUUID = function () {
-      // simple uuid v4 fallback
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-        const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      });
-    };
-  }
-
-  if (!String.prototype.replaceAll) {
-    String.prototype.replaceAll = function (search, replacement) {
-      return this.split(search).join(replacement);
-    };
-  }
-    /* ===========================
-       Storage
-    =========================== */
-    const LS_KEY = "cp_state_v1";
-
-    const defaultState = {
-      github: {
-        owner: "",
-        repo: "",
-        branch: "main",
-        pathServers: "servers.json",
-        pathSub: "sub.txt",
-        token: ""
-      },
-      servers: [
-        { id: crypto.randomUUID(), name: "Server-1", host: "example.com", port: 443, note: "نمونه", enabled: true }
-      ],
-      profiles: [
-        { id: crypto.randomUUID(), name: "Profile-1", content: "sample://profile", enabled: true, note: "نمونه" }
-      ]
-    };
-
-    function loadState(){
-      try{
-        const raw = localStorage.getItem(LS_KEY);
-        if(!raw) return structuredClone(defaultState);
-        const st = JSON.parse(raw);
-        return {
-          ...structuredClone(defaultState),
-          ...st,
-          github: { ...structuredClone(defaultState.github), ...(st.github || {}) }
-        };
-      }catch{
-        return structuredClone(defaultState);
-      }
-    }
+    
     function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state, null, 2)); }
     let state = loadState();
 
@@ -722,59 +665,609 @@
         state.github.pathSub = $("#ghPathSub").value.trim() || "sub.txt";
         state.github.token = $("#ghToken").value.trim();
         saveState();
-      });
+<script>
+/* ===========================
+   Polyfills (برای بعضی مرورگرها)
+=========================== */
+if (typeof structuredClone !== "function") {
+  window.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
+}
+if (!String.prototype.replaceAll) {
+  String.prototype.replaceAll = function (search, replacement) {
+    return this.split(search).join(replacement);
+  };
+}
+if (!crypto.randomUUID) {
+  crypto.randomUUID = function () {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      const r = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
     });
+  };
+}
 
-    $("#btnShowLinks").onclick = () => {
-      const box = $("#linksBox");
-      if(!state.github.owner || !state.github.repo){ alert("Owner و Repo را وارد کن."); return; }
-      const links = buildUserLinks();
-      box.innerHTML = `
-        <div class="muted">لینک‌های پیشنهادی برای کاربران (Raw):</div>
-        <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px">
-          <div><span class="badge">servers.json</span><div class="muted" style="margin-top:4px">${escapeHtml(links.serversJson)}</div></div>
-          <div><span class="badge">sub.txt</span><div class="muted" style="margin-top:4px">${escapeHtml(links.subTxt)}</div></div>
-        </div>
-      `;
-      box.classList.remove("hidden");
+/* ===========================
+   Helpers
+=========================== */
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, cls) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  return e;
+};
+
+function escapeHtml(s){
+  return (s ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function downloadText(filename, content, type="text/plain"){
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function b64EncodeUtf8(str){
+  // base64 safe for utf-8
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+/* ===========================
+   State
+=========================== */
+const LS_KEY = "panel_config_state_v2";
+
+const defaultState = {
+  github: {
+    owner: "",
+    repo: "",
+    branch: "main",
+    pathSub: "sub.txt",
+    token: ""
+  },
+  servers: [
+    { id: crypto.randomUUID(), name: "Server-1", host: "example.com", port: 443, note: "نمونه", enabled: true }
+  ],
+  profiles: [
+    { id: crypto.randomUUID(), name: "Profile-1", content: "sample-line-1", note: "هر خط = یک آیتم", enabled: true }
+  ]
+};
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return structuredClone(defaultState);
+    const data = JSON.parse(raw);
+    return {
+      ...structuredClone(defaultState),
+      ...data,
+      github: { ...structuredClone(defaultState.github), ...(data.github || {}) },
+      servers: Array.isArray(data.servers) ? data.servers : structuredClone(defaultState.servers),
+      profiles: Array.isArray(data.profiles) ? data.profiles : structuredClone(defaultState.profiles),
     };
+  }catch{
+    return structuredClone(defaultState);
+  }
+}
 
-    $("#btnPublish").onclick = async () => {
-      const status = $("#publishStatus");
-      status.textContent = "";
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state, null, 2));
+}
 
-      const { owner, repo, branch, pathServers, pathSub, token } = state.github;
-      if(!owner || !repo || !branch || !pathServers || !pathSub){ alert("Owner/Repo/Branch/Pathها را کامل کن."); return; }
-      if(!token){ alert("GitHub Token لازم است (PAT)."); return; }
+/* ===========================
+   Build Outputs
+=========================== */
+function buildSubTxt(){
+  // هر پروفایل = یک خط (متن دلخواه)
+  return state.profiles
+    .filter(p => p.enabled)
+    .map(p => (p.content || "").trim())
+    .filter(Boolean)
+    .join("\n") + "\n";
+}
+
+function buildExportJson(){
+  // خروجی مخصوص پنل برای Import دوباره
+  return JSON.stringify(state, null, 2);
+}
+
+function buildRawSubLink(){
+  const { owner, repo, branch, pathSub } = state.github;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${pathSub}`;
+}
+
+/* ===========================
+   Modal
+=========================== */
+const modal = $("#modal");
+const modalTitle = $("#modalTitle");
+const modalBody = $("#modalBody");
+const modalClose = $("#modalClose");
+const modalCancel = $("#modalCancel");
+const modalSave = $("#modalSave");
+
+let modalOnSave = null;
+
+function openModal(title, bodyNode, onSave){
+  modalTitle.textContent = title;
+  modalBody.innerHTML = "";
+  modalBody.appendChild(bodyNode);
+  modalOnSave = onSave;
+  modal.classList.remove("hidden");
+}
+function closeModal(){
+  modal.classList.add("hidden");
+  modalOnSave = null;
+}
+
+if (modalClose) modalClose.onclick = closeModal;
+if (modalCancel) modalCancel.onclick = closeModal;
+if (modalSave) modalSave.onclick = () => { if (typeof modalOnSave === "function") modalOnSave(); };
+
+/* ===========================
+   Render
+=========================== */
+const serversList = $("#serversList");
+const profilesList = $("#profilesList");
+const preview = $("#preview");
+
+let activeTab = "sub"; // فقط sub.txt رو پیش‌فرض نمایش بده
+
+function render(){
+  // github inputs
+  const ghOwner = $("#ghOwner"), ghRepo = $("#ghRepo"), ghBranch = $("#ghBranch"), ghPathSub = $("#ghPathSub"), ghToken = $("#ghToken");
+  if (ghOwner) ghOwner.value = state.github.owner;
+  if (ghRepo) ghRepo.value = state.github.repo;
+  if (ghBranch) ghBranch.value = state.github.branch;
+  if (ghPathSub) ghPathSub.value = state.github.pathSub;
+  if (ghToken) ghToken.value = state.github.token;
+
+  // servers
+  if (serversList){
+    serversList.innerHTML = "";
+    state.servers.forEach(s => {
+      const item = el("div","item");
+      const meta = el("div","meta");
+      const name = el("div","name");
+      name.textContent = s.name + (s.enabled ? "" : " (خاموش)");
+      const desc = el("div","desc");
+      desc.innerHTML = `
+        <div class="badge">${s.enabled ? "فعال" : "غیرفعال"}</div>
+        <div class="kv">
+          <span>Host: ${escapeHtml(s.host)}</span>
+          <span>Port: ${escapeHtml(s.port)}</span>
+        </div>
+        <div class="muted">${escapeHtml(s.note || "")}</div>
+      `;
+      meta.append(name, desc);
+
+      const actions = el("div","itemActions");
+
+      const btnEdit = el("button","iconBtn");
+      btnEdit.textContent = "✎";
+      btnEdit.title = "ویرایش";
+      btnEdit.onclick = () => openServerForm(s);
+
+      const btnToggle = el("button","iconBtn");
+      btnToggle.textContent = s.enabled ? "⏻" : "⏽";
+      btnToggle.title = s.enabled ? "غیرفعال" : "فعال";
+      btnToggle.onclick = () => { s.enabled = !s.enabled; saveState(); render(); };
+
+      const btnDel = el("button","iconBtn");
+      btnDel.textContent = "🗑";
+      btnDel.title = "حذف";
+      btnDel.onclick = () => {
+        state.servers = state.servers.filter(x => x.id !== s.id);
+        saveState(); render();
+      };
+
+      actions.append(btnEdit, btnToggle, btnDel);
+      item.append(meta, actions);
+      serversList.appendChild(item);
+    });
+  }
+
+  // profiles
+  if (profilesList){
+    profilesList.innerHTML = "";
+    state.profiles.forEach(p => {
+      const item = el("div","item");
+      const meta = el("div","meta");
+      const name = el("div","name");
+      name.textContent = p.name + (p.enabled ? "" : " (خاموش)");
+
+      const desc = el("div","desc");
+      desc.innerHTML = `
+        <div class="badge">${p.enabled ? "فعال" : "غیرفعال"}</div>
+        <div class="muted">${escapeHtml(p.note || "")}</div>
+        <div class="kv"><span>${escapeHtml(p.content)}</span></div>
+      `;
+      meta.append(name, desc);
+
+      const actions = el("div","itemActions");
+
+      const btnEdit = el("button","iconBtn");
+      btnEdit.textContent = "✎";
+      btnEdit.title = "ویرایش";
+      btnEdit.onclick = () => openProfileForm(p);
+
+      const btnToggle = el("button","iconBtn");
+      btnToggle.textContent = p.enabled ? "⏻" : "⏽";
+      btnToggle.title = p.enabled ? "غیرفعال" : "فعال";
+      btnToggle.onclick = () => { p.enabled = !p.enabled; saveState(); render(); };
+
+      const btnDel = el("button","iconBtn");
+      btnDel.textContent = "🗑";
+      btnDel.title = "حذف";
+      btnDel.onclick = () => {
+        state.profiles = state.profiles.filter(x => x.id !== p.id);
+        saveState(); render();
+      };
+
+      actions.append(btnEdit, btnToggle, btnDel);
+      item.append(meta, actions);
+      profilesList.appendChild(item);
+    });
+  }
+
+  // preview
+  if (preview){
+    preview.textContent = buildSubTxt();
+  }
+
+  // tabs
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.tab === activeTab);
+  });
+}
+
+/* ===========================
+   Forms
+=========================== */
+function openServerForm(existing){
+  const isEdit = !!existing;
+  const wrap = el("div");
+
+  wrap.innerHTML = `
+    <div class="grid">
+      <div class="field">
+        <label>نام</label>
+        <input id="f_name" placeholder="مثلاً DE-1" value="${escapeHtml(existing?.name || "")}">
+      </div>
+      <div class="field">
+        <label>Host</label>
+        <input id="f_host" placeholder="example.com" value="${escapeHtml(existing?.host || "")}">
+      </div>
+      <div class="field">
+        <label>Port</label>
+        <input id="f_port" type="number" placeholder="443" value="${escapeHtml(existing?.port ?? 443)}">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>یادداشت</label>
+        <input id="f_note" placeholder="اختیاری" value="${escapeHtml(existing?.note || "")}">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>فعال</label>
+        <input id="f_enabled" type="checkbox" ${(existing?.enabled ?? true) ? "checked" : ""}>
+      </div>
+    </div>
+  `;
+
+  openModal(isEdit ? "ویرایش سرور" : "افزودن سرور", wrap, () => {
+    const name = $("#f_name").value.trim();
+    const host = $("#f_host").value.trim();
+    const port = Number($("#f_port").value || 0);
+    const note = $("#f_note").value.trim();
+    const enabled = $("#f_enabled").checked;
+
+    if(!name || !host || !port){
+      alert("نام، Host و Port الزامی است.");
+      return;
+    }
+
+    if(isEdit){
+      existing.name = name;
+      existing.host = host;
+      existing.port = port;
+      existing.note = note;
+      existing.enabled = enabled;
+    } else {
+      state.servers.unshift({ id: crypto.randomUUID(), name, host, port, note, enabled });
+    }
+
+    saveState();
+    render();
+    closeModal();
+  });
+}
+
+function openProfileForm(existing){
+  const isEdit = !!existing;
+  const wrap = el("div");
+
+  wrap.innerHTML = `
+    <div class="grid">
+      <div class="field">
+        <label>نام</label>
+        <input id="p_name" placeholder="مثلاً Mobile" value="${escapeHtml(existing?.name || "")}">
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <label>محتوا (هر متن/لینک دلخواه — در sub.txt هر پروفایل یک خط می‌شود)</label>
+        <textarea id="p_content" rows="4" placeholder="هر چیزی...">${escapeHtml(existing?.content || "")}</textarea>
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <label>یادداشت</label>
+        <input id="p_note" placeholder="اختیاری" value="${escapeHtml(existing?.note || "")}">
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <label>فعال</label>
+        <input id="p_enabled" type="checkbox" ${(existing?.enabled ?? true) ? "checked" : ""}>
+      </div>
+    </div>
+  `;
+
+  openModal(isEdit ? "ویرایش پروفایل" : "افزودن پروفایل", wrap, () => {
+    const name = $("#p_name").value.trim();
+    const content = $("#p_content").value.trim();
+    const note = $("#p_note").value.trim();
+    const enabled = $("#p_enabled").checked;
+
+    if(!name || !content){
+      alert("نام و محتوا الزامی است.");
+      return;
+    }
+
+    if(isEdit){
+      existing.name = name;
+      existing.content = content;
+      existing.note = note;
+      existing.enabled = enabled;
+    } else {
+      state.profiles.unshift({ id: crypto.randomUUID(), name, content, note, enabled });
+    }
+
+    saveState();
+    render();
+    closeModal();
+  });
+}
+
+/* ===========================
+   GitHub Publish (sub.txt)
+=========================== */
+async function ghUpsertFile({owner, repo, branch, path, token, content, commitMessage}){
+  const safePath = encodeURIComponent(path).replaceAll("%2F","/");
+  const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${safePath}`;
+
+  // check existing sha
+  const getRes = await fetch(`${apiBase}?ref=${encodeURIComponent(branch)}`, {
+    headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" }
+  });
+
+  let sha = null;
+  if(getRes.status === 200){
+    const data = await getRes.json();
+    sha = data.sha;
+  } else if(getRes.status === 404){
+    sha = null;
+  } else {
+    const txt = await getRes.text();
+    throw new Error(`GitHub GET failed: ${getRes.status} ${txt}`);
+  }
+
+  const body = {
+    message: commitMessage,
+    content: b64EncodeUtf8(content),
+    branch
+  };
+  if(sha) body.sha = sha;
+
+  const putRes = await fetch(apiBase, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if(!putRes.ok){
+    const txt = await putRes.text();
+    throw new Error(`GitHub PUT failed: ${putRes.status} ${txt}`);
+  }
+  return putRes.json();
+}
+
+/* ===========================
+   Events
+=========================== */
+function bind(){
+  // add buttons
+  const btnAddServer = $("#btnAddServer");
+  const btnAddProfile = $("#btnAddProfile");
+  if (btnAddServer) btnAddServer.onclick = () => openServerForm(null);
+  if (btnAddProfile) btnAddProfile.onclick = () => openProfileForm(null);
+
+  // tabs (اگر تو HTML هنوز هست)
+  document.querySelectorAll(".tab").forEach(t => {
+    t.onclick = () => {
+      activeTab = t.dataset.tab;
+      render();
+    };
+  });
+
+  // downloads
+  const btnDownloadSub = $("#btnDownloadSub");
+  if (btnDownloadSub) btnDownloadSub.onclick = () => downloadText("sub.txt", buildSubTxt(), "text/plain");
+
+  // export/import
+  const btnExport = $("#btnExport");
+  if (btnExport) btnExport.onclick = () => downloadText("panel-export.json", buildExportJson(), "application/json");
+
+  const btnImport = $("#btnImport");
+  const fileInput = $("#fileInput");
+  if (btnImport && fileInput) btnImport.onclick = () => fileInput.click();
+
+  // import handler: دو نوع فایل
+  // 1) panel-export.json (خروجی همین پنل)
+  // 2) فایل متنی sub.txt (هر خط => یک پروفایل)
+  if (fileInput){
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
 
       try{
-        status.textContent = "در حال انتشار روی GitHub...";
-        const serversJson = buildServersJson();
-        const subTxt = buildSubTxt();
+        const name = (file.name || "").toLowerCase();
+        const txt = await file.text();
 
-        await ghUpsertFile({ owner, repo, branch, path: pathServers, token, content: serversJson, commitMessage: `Update ${pathServers}` });
-        await ghUpsertFile({ owner, repo, branch, path: pathSub, token, content: subTxt, commitMessage: `Update ${pathSub}` });
+        if (name.endsWith(".txt")) {
+          // sub.txt -> profiles
+          const lines = txt.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+          state.profiles = lines.map((line, i) => ({
+            id: crypto.randomUUID(),
+            name: `Imported-${i+1}`,
+            content: line,
+            note: "Imported from txt",
+            enabled: true
+          }));
+        } else {
+          // json -> state
+          const data = JSON.parse(txt);
+          state = {
+            ...structuredClone(defaultState),
+            ...data,
+            github: { ...structuredClone(defaultState.github), ...(data.github || {}) },
+            servers: Array.isArray(data.servers) ? data.servers : structuredClone(defaultState.servers),
+            profiles: Array.isArray(data.profiles) ? data.profiles : structuredClone(defaultState.profiles),
+          };
+        }
 
-        const links = buildUserLinks();
-        status.textContent = "✅ انجام شد. فایل‌ها آپدیت شدند.";
-
-        const box = $("#linksBox");
-        box.classList.remove("hidden");
-        box.innerHTML = `
-          <div class="muted">لینک‌های کاربران (Raw) — همیشه آخرین نسخه:</div>
-          <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px">
-            <div><span class="badge">servers.json</span><div class="muted" style="margin-top:4px">${escapeHtml(links.serversJson)}</div></div>
-            <div><span class="badge">sub.txt</span><div class="muted" style="margin-top:4px">${escapeHtml(links.subTxt)}</div></div>
-          </div>
-        `;
-      }catch(err){
-        status.textContent = "❌ خطا در انتشار. (Token/Repo/Branch/Path را چک کن)";
+        saveState();
+        render();
+        alert("وارد شد");
+      } catch(err){
         console.error(err);
+        alert("فایل نامعتبر است.");
+      } finally {
+        e.target.value = "";
+      }
+    });
+  }
+
+  // github inputs
+  ["ghOwner","ghRepo","ghBranch","ghPathSub","ghToken"].forEach(id => {
+    const inp = $("#"+id);
+    if(!inp) return;
+    inp.addEventListener("input", () => {
+      state.github.owner = ($("#ghOwner")?.value || "").trim();
+      state.github.repo = ($("#ghRepo")?.value || "").trim();
+      state.github.branch = ($("#ghBranch")?.value || "main").trim() || "main";
+      state.github.pathSub = ($("#ghPathSub")?.value || "sub.txt").trim() || "sub.txt";
+      state.github.token = ($("#ghToken")?.value || "").trim();
+      saveState();
+    });
+  });
+
+  // show links
+  const btnShowLinks = $("#btnShowLinks");
+  const linksBox = $("#linksBox");
+  if (btnShowLinks && linksBox){
+    btnShowLinks.onclick = () => {
+      if(!state.github.owner || !state.github.repo){
+        alert("Owner و Repo را وارد کن.");
+        return;
+      }
+      const link = buildRawSubLink();
+      linksBox.classList.remove("hidden");
+      linksBox.innerHTML = `
+        <div class="muted">لینک Raw فایل sub.txt:</div>
+        <div style="margin-top:8px; user-select:all">
+          <span class="badge">sub.txt</span>
+          <div class="muted" style="margin-top:6px">${escapeHtml(link)}</div>
+        </div>
+      `;
+    };
+  }
+
+  // publish
+  const btnPublish = $("#btnPublish");
+  const publishStatus = $("#publishStatus");
+
+  if (btnPublish){
+    btnPublish.onclick = async () => {
+      if (!publishStatus) return;
+
+      publishStatus.textContent = "";
+      if (linksBox){ linksBox.classList.add("hidden"); linksBox.innerHTML = ""; }
+
+      const { owner, repo, branch, pathSub, token } = state.github;
+
+      if(!owner || !repo || !branch || !pathSub){
+        alert("Owner / Repo / Branch / Path sub.txt را کامل کن.");
+        return;
+      }
+      if(!token){
+        alert("GitHub Token لازم است (PAT).");
+        return;
+      }
+
+      try{
+        publishStatus.textContent = "در حال انتشار روی GitHub...";
+
+        await ghUpsertFile({
+          owner, repo, branch,
+          path: pathSub,
+          token,
+          content: buildSubTxt(),
+          commitMessage: `Update ${pathSub}`
+        });
+
+        publishStatus.textContent = "✅ انجام شد. sub.txt آپدیت شد.";
+
+        if (linksBox){
+          const link = buildRawSubLink();
+          linksBox.classList.remove("hidden");
+          linksBox.innerHTML = `
+            <div class="muted">لینک Raw (همیشه آخرین نسخه):</div>
+            <div style="margin-top:8px; user-select:all">
+              <span class="badge">sub.txt</span>
+              <div class="muted" style="margin-top:6px">${escapeHtml(link)}</div>
+            </div>
+          `;
+        }
+      } catch(err){
+        console.error(err);
+        publishStatus.textContent = "❌ خطا در انتشار. Token/Repo/Branch/Path را چک کن.";
         alert(String(err?.message || err));
       }
     };
+  }
+}
 
-    render();
+/* ===========================
+   Start
+=========================== */
+window.addEventListener("DOMContentLoaded", () => {
+  bind();
+  render();
+});
   </script>
 </body>
 </html>
