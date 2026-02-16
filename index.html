@@ -317,8 +317,28 @@
   </div>
 
   <input id="fileInput" type="file" accept=".json" class="hidden" />
+    <script>
+  // --- Polyfills for older browsers ---
+  if (typeof structuredClone !== "function") {
+    window.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
+  }
 
-  <script>
+  if (!crypto.randomUUID) {
+    crypto.randomUUID = function () {
+      // simple uuid v4 fallback
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    };
+  }
+
+  if (!String.prototype.replaceAll) {
+    String.prototype.replaceAll = function (search, replacement) {
+      return this.split(search).join(replacement);
+    };
+  }
     /* ===========================
        Storage
     =========================== */
@@ -588,16 +608,173 @@
         <div class="grid">
           <div class="field">
             <label>نام</label>
-            <input id="p_name" placeholder="مثلاً Mobile" value="${escapeHtml(existing?.name || "")}">
+            <input id="p_enabled" type="checkbox" ${(existing?.enabled ?? true) ? "checked" : ""}>
           </div>
-          <div class="field" style="grid-column:1/-1">
-            <label>متن/لینک پروفایل (هر چیزی خواستی)</label>
-            <textarea id="p_content" rows="4" placeholder="یک لینک یا هر متن...">${escapeHtml(existing?.content || "")}</textarea>
+        </div>
+      `;
+      openModal(isEdit ? "ویرایش پروفایل" : "افزودن پروفایل", wrap, () => {
+        const name = $("#p_name").value.trim();
+        const content = $("#p_content").value.trim();
+        const note = $("#p_note").value.trim();
+        const enabled = $("#p_enabled").checked;
+
+        if(!name || !content){ alert("نام و متن/لینک پروفایل الزامی است."); return; }
+
+        if(isEdit){
+          existing.name = name; existing.content = content;
+          existing.note = note; existing.enabled = enabled;
+        }else{
+          state.profiles.unshift({ id: crypto.randomUUID(), name, content, note, enabled });
+        }
+        saveState(); render(); closeModal();
+      });
+    }
+
+    /* ===========================
+       GitHub Publish (No Backend)
+    =========================== */
+    async function ghUpsertFile({owner, repo, branch, path, token, content, commitMessage}){
+      const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path).replaceAll("%2F","/")}`;
+
+      const getRes = await fetch(`${apiBase}?ref=${encodeURIComponent(branch)}`, {
+        headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" }
+      });
+
+      let sha = null;
+      if(getRes.status === 200){
+        const data = await getRes.json();
+        sha = data.sha;
+      }else if(getRes.status === 404){
+        sha = null;
+      }else{
+        const txt = await getRes.text();
+        throw new Error(`GitHub GET failed: ${getRes.status} ${txt}`);
+      }
+
+      const b64 = btoa(unescape(encodeURIComponent(content)));
+      const body = { message: commitMessage, content: b64, branch };
+      if(sha) body.sha = sha;
+
+      const putRes = await fetch(apiBase, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      if(!putRes.ok){
+        const txt = await putRes.text();
+        throw new Error(`GitHub PUT failed: ${putRes.status} ${txt}`);
+      }
+      return putRes.json();
+    }
+
+    function buildUserLinks(){
+      const { owner, repo, branch, pathServers, pathSub } = state.github;
+      const rawBase = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}`;
+      return { serversJson: `${rawBase}/${pathServers}`, subTxt: `${rawBase}/${pathSub}` };
+    }
+
+    /* ===========================
+       Events
+    =========================== */
+    $("#btnAddServer").onclick = () => openServerForm(null);
+    $("#btnAddProfile").onclick = () => openProfileForm(null);
+
+    document.querySelectorAll(".tab").forEach(t => {
+      t.onclick = () => { activeTab = t.dataset.tab; render(); };
+    });
+
+    $("#btnDownloadServers").onclick = () => downloadText("servers.json", buildServersJson(), "application/json");
+    $("#btnDownloadSub").onclick = () => downloadText("sub.txt", buildSubTxt(), "text/plain");
+
+    $("#btnExport").onclick = () => downloadText("panel-export.json", JSON.stringify(state, null, 2), "application/json");
+
+    $("#btnImport").onclick = () => $("#fileInput").click();
+    $("#fileInput").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if(!file) return;
+      try{
+        const txt = await file.text();
+        const data = JSON.parse(txt);
+        state = {
+          ...structuredClone(defaultState),
+          ...data,
+          github: { ...structuredClone(defaultState.github), ...(data.github || {}) }
+        };
+        saveState(); render(); alert("داده‌ها وارد شد.");
+      }catch{
+        alert("فایل نامعتبر است.");
+      }finally{
+        e.target.value = "";
+      }
+    });
+
+    ["ghOwner","ghRepo","ghBranch","ghPathServers","ghPathSub","ghToken"].forEach(id => {
+      $("#"+id).addEventListener("input", () => {
+        state.github.owner = $("#ghOwner").value.trim();
+        state.github.repo = $("#ghRepo").value.trim();
+        state.github.branch = $("#ghBranch").value.trim() || "main";
+        state.github.pathServers = $("#ghPathServers").value.trim() || "servers.json";
+        state.github.pathSub = $("#ghPathSub").value.trim() || "sub.txt";
+        state.github.token = $("#ghToken").value.trim();
+        saveState();
+      });
+    });
+
+    $("#btnShowLinks").onclick = () => {
+      const box = $("#linksBox");
+      if(!state.github.owner || !state.github.repo){ alert("Owner و Repo را وارد کن."); return; }
+      const links = buildUserLinks();
+      box.innerHTML = `
+        <div class="muted">لینک‌های پیشنهادی برای کاربران (Raw):</div>
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px">
+          <div><span class="badge">servers.json</span><div class="muted" style="margin-top:4px">${escapeHtml(links.serversJson)}</div></div>
+          <div><span class="badge">sub.txt</span><div class="muted" style="margin-top:4px">${escapeHtml(links.subTxt)}</div></div>
+        </div>
+      `;
+      box.classList.remove("hidden");
+    };
+
+    $("#btnPublish").onclick = async () => {
+      const status = $("#publishStatus");
+      status.textContent = "";
+
+      const { owner, repo, branch, pathServers, pathSub, token } = state.github;
+      if(!owner || !repo || !branch || !pathServers || !pathSub){ alert("Owner/Repo/Branch/Pathها را کامل کن."); return; }
+      if(!token){ alert("GitHub Token لازم است (PAT)."); return; }
+
+      try{
+        status.textContent = "در حال انتشار روی GitHub...";
+        const serversJson = buildServersJson();
+        const subTxt = buildSubTxt();
+
+        await ghUpsertFile({ owner, repo, branch, path: pathServers, token, content: serversJson, commitMessage: `Update ${pathServers}` });
+        await ghUpsertFile({ owner, repo, branch, path: pathSub, token, content: subTxt, commitMessage: `Update ${pathSub}` });
+
+        const links = buildUserLinks();
+        status.textContent = "✅ انجام شد. فایل‌ها آپدیت شدند.";
+
+        const box = $("#linksBox");
+        box.classList.remove("hidden");
+        box.innerHTML = `
+          <div class="muted">لینک‌های کاربران (Raw) — همیشه آخرین نسخه:</div>
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px">
+            <div><span class="badge">servers.json</span><div class="muted" style="margin-top:4px">${escapeHtml(links.serversJson)}</div></div>
+            <div><span class="badge">sub.txt</span><div class="muted" style="margin-top:4px">${escapeHtml(links.subTxt)}</div></div>
           </div>
-          <div class="field" style="grid-column:1/-1">
-            <label>یادداشت</label>
-            <input id="p_note" placeholder="اختیاری" value="${escapeHtml(existing?.note || "")}">
-          </div>
-          <div class="field" style="grid-column:1/-1">
-            <label>فعال</label>
-            <input id=
+        `;
+      }catch(err){
+        status.textContent = "❌ خطا در انتشار. (Token/Repo/Branch/Path را چک کن)";
+        console.error(err);
+        alert(String(err?.message || err));
+      }
+    };
+
+    render();
+  </script>
+</body>
+</html>
